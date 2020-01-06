@@ -1,8 +1,7 @@
-package torrentfile
+package torrent
 
 import (
 	"bytes"
-	"crypto/rand"
 	"crypto/sha1"
 	"fmt"
 	"os"
@@ -10,14 +9,12 @@ import (
 	"golang.org/x/net/proxy"
 
 	"github.com/jackpal/bencode-go"
-	"github.com/gproessl/torrent-client/p2p"
 )
 
-// Port to listen on
-const Port uint16 = 6881
+const Port = 6887
 
-// TorrentFile encodes the metadata from a .torrent file
-type TorrentFile struct {
+// Torrent encodes the metadata from a .torrent file
+type Torrent struct {
 	Announce    string
 	InfoHash    [20]byte
 	PieceHashes [][20]byte
@@ -39,33 +36,13 @@ type bencodeTorrent struct {
 }
 
 // DownloadToFile downloads a torrent and writes it to a file
-func (t *TorrentFile) DownloadToFile(path string) error {
-	var peerID [20]byte
-	_, err := rand.Read(peerID[:])
-	if err != nil {
-		return err
-	}
-
+func (t *Torrent) DownloadToFile(path string) error {
 	dialer, err := proxy.SOCKS5("tcp", "127.0.0.1:9050", nil, nil)
 	if err != nil {
 		return err
 	}
 
-	peers, err := t.requestPeers(dialer, peerID, Port)
-	if err != nil {
-		return err
-	}
-
-	torrent := p2p.Torrent{
-		Peers:       peers,
-		PeerID:      peerID,
-		InfoHash:    t.InfoHash,
-		PieceHashes: t.PieceHashes,
-		PieceLength: t.PieceLength,
-		Length:      t.Length,
-		Name:        t.Name,
-	}
-	buf, err := torrent.Download(dialer)
+	buf, err := t.Download(dialer)
 	if err != nil {
 		return err
 	}
@@ -83,19 +60,19 @@ func (t *TorrentFile) DownloadToFile(path string) error {
 }
 
 // Open parses a torrent file
-func Open(path string) (TorrentFile, error) {
+func Open(path string) (Torrent, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return TorrentFile{}, err
+		return Torrent{}, err
 	}
 	defer file.Close()
 
 	bto := bencodeTorrent{}
 	err = bencode.Unmarshal(file, &bto)
 	if err != nil {
-		return TorrentFile{}, err
+		return Torrent{}, err
 	}
-	return bto.toTorrentFile()
+	return bto.toTorrent()
 }
 
 func (i *bencodeInfo) hash() ([20]byte, error) {
@@ -124,16 +101,16 @@ func (i *bencodeInfo) splitPieceHashes() ([][20]byte, error) {
 	return hashes, nil
 }
 
-func (bto *bencodeTorrent) toTorrentFile() (TorrentFile, error) {
+func (bto *bencodeTorrent) toTorrent() (Torrent, error) {
 	infoHash, err := bto.Info.hash()
 	if err != nil {
-		return TorrentFile{}, err
+		return Torrent{}, err
 	}
 	pieceHashes, err := bto.Info.splitPieceHashes()
 	if err != nil {
-		return TorrentFile{}, err
+		return Torrent{}, err
 	}
-	t := TorrentFile{
+	t := Torrent{
 		Announce:    bto.Announce,
 		InfoHash:    infoHash,
 		PieceHashes: pieceHashes,

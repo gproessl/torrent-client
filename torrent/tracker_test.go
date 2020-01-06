@@ -1,4 +1,4 @@
-package torrentfile
+package torrent
 
 import (
 	"net"
@@ -11,7 +11,7 @@ import (
 )
 
 func TestBuildTrackerURL(t *testing.T) {
-	to := TorrentFile{
+	to := Torrent{
 		Announce: "http://bttracker.debian.org:6969/announce",
 		InfoHash: [20]byte{216, 247, 57, 206, 195, 40, 149, 108, 204, 91, 191, 31, 134, 217, 253, 207, 219, 168, 206, 182},
 		PieceHashes: [][20]byte{
@@ -43,7 +43,7 @@ func TestRequestPeers(t *testing.T) {
 		w.Write(response)
 	}))
 	defer ts.Close()
-	tf := TorrentFile{
+	tf := Torrent{
 		Announce: ts.URL,
 		InfoHash: [20]byte{216, 247, 57, 206, 195, 40, 149, 108, 204, 91, 191, 31, 134, 217, 253, 207, 219, 168, 206, 182},
 		PieceHashes: [][20]byte{

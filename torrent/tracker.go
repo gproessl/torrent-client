@@ -1,4 +1,4 @@
-package torrentfile
+package torrent
 
 import (
 	"net/http"
@@ -17,7 +17,7 @@ type bencodeTrackerResp struct {
 	Peers    string `bencode:"peers"`
 }
 
-func (t *TorrentFile) buildTrackerURL(peerID [20]byte, port uint16) (string, error) {
+func (t *Torrent) buildTrackerURL(peerID [20]byte, port uint16) (string, error) {
 	base, err := url.Parse(t.Announce)
 	if err != nil {
 		return "", err
@@ -35,7 +35,7 @@ func (t *TorrentFile) buildTrackerURL(peerID [20]byte, port uint16) (string, err
 	return base.String(), nil
 }
 
-func (t *TorrentFile) requestPeers(dialer proxy.Dialer, peerID [20]byte, port uint16) ([]peers.Peer, error) {
+func (t *Torrent) requestPeers(dialer proxy.Dialer, peerID [20]byte, port uint16) ([]peers.Peer, error) {
 	url, err := t.buildTrackerURL(peerID, port)
 	if err != nil {
 		return nil, err
@@ -61,5 +61,5 @@ func (t *TorrentFile) requestPeers(dialer proxy.Dialer, peerID [20]byte, port ui
 		return nil, err
 	}
 
-	return peers.Unmarshal([]byte(trackerResp.Peers))
+	return peers.Unmarshal(peerID, []byte(trackerResp.Peers))
 }

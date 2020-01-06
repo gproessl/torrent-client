@@ -1,4 +1,4 @@
-package p2p
+package torrent
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"log"
 	"runtime"
 	"time"
+	"crypto/rand"
 
 	"golang.org/x/net/proxy"
 
@@ -15,22 +16,17 @@ import (
 	"github.com/gproessl/torrent-client/peers"
 )
 
+// Minimum number of workers
+const MinWorker = 30
+
+// Maximum amount of tries to reconnect to peer
+const MaxTries = 10
+
 // MaxBlockSize is the largest number of bytes a request can ask for
 const MaxBlockSize = 16384
 
 // MaxBacklog is the number of unfulfilled requests a client can have in its pipeline
 const MaxBacklog = 5
-
-// Torrent holds data required to download a torrent from a list of peers
-type Torrent struct {
-	Peers       []peers.Peer
-	PeerID      [20]byte
-	InfoHash    [20]byte
-	PieceHashes [][20]byte
-	PieceLength int
-	Length      int
-	Name        string
-}
 
 type pieceWork struct {
 	index  int
@@ -133,7 +129,7 @@ func checkIntegrity(pw *pieceWork, buf []byte) error {
 }
 
 func (t *Torrent) startDownloadWorker(dialer proxy.Dialer, peer peers.Peer, workQueue chan *pieceWork, results chan *pieceResult) {
-	c, err := client.New(dialer, peer, t.PeerID, t.InfoHash)
+	c, err := client.New(dialer, peer, peer.PeerID, t.InfoHash)
 	if err != nil {
 		log.Printf("Could not handshake with %s. Disconnecting\n", peer.IP)
 		return
@@ -153,8 +149,14 @@ func (t *Torrent) startDownloadWorker(dialer proxy.Dialer, peer peers.Peer, work
 		// Download the piece
 		buf, err := attemptDownloadPiece(c, pw)
 		if err != nil {
-			log.Println("Exiting", err)
 			workQueue <- pw // Put piece back on the queue
+			peer.Tries++
+			if peer.Tries >= MaxTries {
+				return
+			}
+			log.Println("(", peer.Tries, ") Attempting to reconnect in 15...", err)
+			time.Sleep(15 * time.Second)
+			go t.startDownloadWorker(dialer, peer, workQueue, results)
 			return
 		}
 
@@ -195,15 +197,27 @@ func (t *Torrent) Download(dialer proxy.Dialer) ([]byte, error) {
 		workQueue <- &pieceWork{index, hash, length}
 	}
 
-	// Start workers
-	for _, peer := range t.Peers {
-		go t.startDownloadWorker(dialer, peer, workQueue, results)
-	}
-
 	// Collect results into a buffer until full
 	buf := make([]byte, t.Length)
 	donePieces := 0
 	for donePieces < len(t.PieceHashes) {
+		if runtime.NumGoroutine() <= MinWorker {
+			var peerID [20]byte
+			_, err := rand.Read(peerID[:])
+			if err != nil {
+				return nil, err
+			}
+			peers, err := t.requestPeers(dialer, peerID, Port)
+			if err != nil {
+				return nil, err
+			}
+
+			// Start workers
+			for _, peer := range peers {
+				go t.startDownloadWorker(dialer, peer, workQueue, results)
+			}
+		}
+
 		res := <-results
 		begin, end := t.calculateBoundsForPiece(res.index)
 		copy(buf[begin:end], res.buf)
