@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
 
-	"github.com/veggiedefender/torrent-client/peers"
+	"golang.org/x/net/proxy"
+
+	"github.com/gproessl/torrent-client/peers"
 
 	"github.com/jackpal/bencode-go"
 )
@@ -34,14 +35,21 @@ func (t *TorrentFile) buildTrackerURL(peerID [20]byte, port uint16) (string, err
 	return base.String(), nil
 }
 
-func (t *TorrentFile) requestPeers(peerID [20]byte, port uint16) ([]peers.Peer, error) {
+func (t *TorrentFile) requestPeers(dialer proxy.Dialer, peerID [20]byte, port uint16) ([]peers.Peer, error) {
 	url, err := t.buildTrackerURL(peerID, port)
 	if err != nil {
 		return nil, err
 	}
 
-	c := &http.Client{Timeout: 15 * time.Second}
-	resp, err := c.Get(url)
+	httpTransport := &http.Transport{}
+	httpClient := &http.Client{Transport: httpTransport}
+	httpTransport.Dial = dialer.Dial
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	// use the http client to fetch the page
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

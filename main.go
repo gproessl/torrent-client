@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/veggiedefender/torrent-client/torrentfile"
+	"github.com/gproessl/torrent-client/torrentfile"
 )
 
 func main() {

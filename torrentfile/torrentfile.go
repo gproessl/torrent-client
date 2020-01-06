@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"os"
 
+	"golang.org/x/net/proxy"
+
 	"github.com/jackpal/bencode-go"
-	"github.com/veggiedefender/torrent-client/p2p"
+	"github.com/gproessl/torrent-client/p2p"
 )
 
 // Port to listen on
@@ -44,7 +46,12 @@ func (t *TorrentFile) DownloadToFile(path string) error {
 		return err
 	}
 
-	peers, err := t.requestPeers(peerID, Port)
+	dialer, err := proxy.SOCKS5("tcp", "127.0.0.1:9050", nil, nil)
+	if err != nil {
+		return err
+	}
+
+	peers, err := t.requestPeers(dialer, peerID, Port)
 	if err != nil {
 		return err
 	}
@@ -58,7 +65,7 @@ func (t *TorrentFile) DownloadToFile(path string) error {
 		Length:      t.Length,
 		Name:        t.Name,
 	}
-	buf, err := torrent.Download()
+	buf, err := torrent.Download(dialer)
 	if err != nil {
 		return err
 	}

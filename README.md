@@ -1,5 +1,9 @@
 # torrent-client
 
+Fork of: https://github.com/veggiedefender/torrent-client
+extended to only connect to peers and tracker
+via Socks5 Proxy on Port 9050 (Tor)
+
 [![CircleCI](https://circleci.com/gh/veggiedefender/torrent-client.svg?style=shield)](https://circleci.com/gh/veggiedefender/torrent-client)
 
 Tiny BitTorrent client written in Go. Read the blog post: https://blog.jse.li/posts/torrent/
@@ -7,7 +11,7 @@ Tiny BitTorrent client written in Go. Read the blog post: https://blog.jse.li/po
 ## Install
 
 ```sh
-go get github.com/veggiedefender/torrent-client
+go get github.com/gproessl/torrent-client
 ```
 
 ## Usage

@@ -6,12 +6,14 @@ import (
 	"net"
 	"time"
 
-	"github.com/veggiedefender/torrent-client/bitfield"
-	"github.com/veggiedefender/torrent-client/peers"
+	"golang.org/x/net/proxy"
 
-	"github.com/veggiedefender/torrent-client/message"
+	"github.com/gproessl/torrent-client/bitfield"
+	"github.com/gproessl/torrent-client/peers"
 
-	"github.com/veggiedefender/torrent-client/handshake"
+	"github.com/gproessl/torrent-client/message"
+
+	"github.com/gproessl/torrent-client/handshake"
 )
 
 // A Client is a TCP connection with a peer
@@ -62,8 +64,8 @@ func recvBitfield(conn net.Conn) (bitfield.Bitfield, error) {
 
 // New connects with a peer, completes a handshake, and receives a handshake
 // returns an err if any of those fail.
-func New(peer peers.Peer, peerID, infoHash [20]byte) (*Client, error) {
-	conn, err := net.DialTimeout("tcp", peer.String(), 3*time.Second)
+func New(dialer proxy.Dialer, peer peers.Peer, peerID, infoHash [20]byte) (*Client, error) {
+	conn, err := dialer.Dial("tcp", peer.String())
 	if err != nil {
 		return nil, err
 	}

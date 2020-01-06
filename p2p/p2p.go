@@ -8,9 +8,11 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/veggiedefender/torrent-client/client"
-	"github.com/veggiedefender/torrent-client/message"
-	"github.com/veggiedefender/torrent-client/peers"
+	"golang.org/x/net/proxy"
+
+	"github.com/gproessl/torrent-client/client"
+	"github.com/gproessl/torrent-client/message"
+	"github.com/gproessl/torrent-client/peers"
 )
 
 // MaxBlockSize is the largest number of bytes a request can ask for
@@ -130,8 +132,8 @@ func checkIntegrity(pw *pieceWork, buf []byte) error {
 	return nil
 }
 
-func (t *Torrent) startDownloadWorker(peer peers.Peer, workQueue chan *pieceWork, results chan *pieceResult) {
-	c, err := client.New(peer, t.PeerID, t.InfoHash)
+func (t *Torrent) startDownloadWorker(dialer proxy.Dialer, peer peers.Peer, workQueue chan *pieceWork, results chan *pieceResult) {
+	c, err := client.New(dialer, peer, t.PeerID, t.InfoHash)
 	if err != nil {
 		log.Printf("Could not handshake with %s. Disconnecting\n", peer.IP)
 		return
@@ -183,7 +185,7 @@ func (t *Torrent) calculatePieceSize(index int) int {
 }
 
 // Download downloads the torrent. This stores the entire file in memory.
-func (t *Torrent) Download() ([]byte, error) {
+func (t *Torrent) Download(dialer proxy.Dialer) ([]byte, error) {
 	log.Println("Starting download for", t.Name)
 	// Init queues for workers to retrieve work and send results
 	workQueue := make(chan *pieceWork, len(t.PieceHashes))
@@ -195,7 +197,7 @@ func (t *Torrent) Download() ([]byte, error) {
 
 	// Start workers
 	for _, peer := range t.Peers {
-		go t.startDownloadWorker(peer, workQueue, results)
+		go t.startDownloadWorker(dialer, peer, workQueue, results)
 	}
 
 	// Collect results into a buffer until full
